@@ -7,7 +7,7 @@ topics = {}
 
 is_admin = 0
 
-token = '5837752378:AAGk84BEgMOu_2mYO1gQgBFsCMf1Nc82iY0'
+token = ''
 
 bot = telebot.TeleBot(token)
 

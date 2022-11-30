@@ -1,7 +1,5 @@
 import telebot
 import re
-import random
-from translate import Translator
 
 token = ''
 

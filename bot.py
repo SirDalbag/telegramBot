@@ -1,103 +1,135 @@
 # -*- coding: utf-8 -*-
-import telebot
-import re
 import json
-
-topics = {}
-
-is_admin = 0
+import datetime
+import telebot
 
 token = ''
 
 bot = telebot.TeleBot(token)
 
+data = {}
 
-def write(dict):
-    dict_json = json.dumps(dict)
-    with open("topics.json", "w") as file:
-        file.write(dict_json)
-
-
-def read(dict):
-    with open("topics.json", "r") as file:
-        dict_json = file.read()
-    dict = json.loads(dict_json)
+with open('data.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
 
 
-def add(key, val, dict):
-    dict[key] = val
-    write(dict)
-    read(dict)
+def write():
+    with open('data.json', 'w', encoding="utf-8") as outfile:
+        json.dump(data, outfile)
 
 
-def remove(key, dict, all=0):
-    if all == 1:
-        dict.clear()
+def get_day(day_name):
+    return data.get(day_name, 'Расписание не найдено')
+
+
+def get_items(day_name, item_name):
+    return data.get(day_name).get(item_name, 'Предмет не найден')
+
+
+def get_date(day_name, item_name):
+    str = data.get(day_name).get(item_name, 'Предмет не найден')
+    if str != 'Предмет не найден':
+        date = str.split(' ')[2].replace('-', '.').split('.')
+        dateF = datetime.date(int(date[5])+2000, int(date[4]), int(date[3]))
+        return dateF
     else:
-        del dict[key]
-    write(dict)
-    read(dict)
+        return 'Предмет не найден'
 
 
-def edit(key, val, dict):
-    dict[key] = val
-    write(dict)
-    read(dict)
+def get_time(day_name, item_name):
+    str = data.get(day_name).get(item_name, 'Предмет не найден')
+    now = datetime.date.today()
+    if str != 'Предмет не найден':
+        date = str.split(' ')[2].replace('-', '.').split('.')
+        dateF = datetime.date(int(date[5])+2000, int(date[4]), int(date[3]))
+        return dateF - now
+    else:
+        return 'Предмет не найден'
 
 
-@bot.message_handler(content_types=["text"])
-def start(message):
-    read(topics)
-    if message.text.find("- это?") != -1:
-        bot.send_message(
-            message.from_user.id, f"{re.split(' ', message.text, 1)[0]}\n\n{topics.get(re.split(' ', message.text, 1)[0])}")
-    elif message.text.find("Авторизация") != -1:
-        if re.split(':', re.split(' ', message.text, 1)[1])[0] == "Admin" and re.split(':', re.split(' ', message.text, 1)[1])[1] == "Admin":
-            global is_admin
-            is_admin = 1
-            bot.send_message(message.from_user.id,
-                             "Права администратора получены.")
-        else:
-            bot.send_message(message.from_user.id,
-                             "Права администратора не были получены.")
-    elif message.text.find("Добавь") != -1:
-        if is_admin == 1:
-            add(re.split(':', re.split(' ', message.text, 1)[1])[0], re.split(
-                ':', re.split(' ', message.text, 1)[1])[1], topics)
-            bot.send_message(
-                message.from_user.id, f"Тема \"{re.split(':', re.split(' ', message.text, 1)[1])[0]}\" успешно добавлена!")
-        else:
-            bot.send_message(message.from_user.id,
-                             "Добавлять темы может только администратор.")
-    elif message.text.find("Удали") != -1:
-        if is_admin == 1:
-            if message.text.find("все") != -1:
-                remove(re.split(' ', message.text, 1)[1], topics, 1)
-                bot.send_message(
-                    message.from_user.id, "Все темы успешно удалены!")
+def add_edit_item(day_name, item_name, val):
+    item = data.get(day_name)
+    item[item_name] = val
+    write()
+
+
+def del_item(day_name, item_name):
+    item = data.get(day_name).get(item_name, 'Предмет не найден')
+    if item != 'Предмет не найден':
+        data.get(day_name).pop(item_name)
+        write()
+        return 'Предмет успешно удален'
+    else:
+        return 'Предмет не найден'
+
+
+@bot.message_handler(commands=['предмет'])
+def showItem(message):
+    for key, value in data.items():
+        temp = list(data[key].items())
+        for i in temp:
+            if i[0] == message.text.split(' ')[1]:
+                day = int(str(get_time(key, message.text.split(' ')[1])).split(
+                    ',')[0].replace('days', ''))
+                if day > 0:
+                    bot.send_message(message.chat.id, f'Осталось дней: {day}')
+                    break
+                else:
+                    bot.send_message(message.chat.id, 'Предмет закончился')
+
+
+@bot.message_handler(commands=['расписание'])
+def showSchedule(message):
+    try:
+        scheduleDay = get_day(message.text.split(' ')[1])
+        if scheduleDay != 'Расписание не найдено':
+            scheduleDay = list(data[message.text.split(' ')[1]].items())
+            if message.text.split(' ')[2] != 'сортировка':
+                for items in scheduleDay:
+                    bot.send_message(
+                        message.chat.id, f'{items[0]} - {items[1]}')
             else:
-                remove(re.split(' ', message.text, 1)[1], topics)
-                bot.send_message(
-                    message.from_user.id, f"Тема \"{re.split(' ', message.text, 1)[1]}\" успешно удалена!")
+                for items in scheduleDay:
+                    if get_date(message.text.split(' ')[1], items[0]) > datetime.date.today():
+                        bot.send_message(
+                            message.chat.id, f'{items[0]} - {items[1]}')
         else:
-            bot.send_message(message.from_user.id,
-                             "Удалять темы может только администратор.")
-    elif message.text.find("Измени") != -1:
-        if is_admin == 1:
-            edit(re.split(':', re.split(' ', message.text, 1)[1])[0], re.split(
-                ':', re.split(' ', message.text, 1)[1])[1], topics)
-            bot.send_message(
-                message.from_user.id, f"Тема \"{re.split(':', re.split(' ', message.text, 1)[1])[0]}\" успешно изменена!")
-        else:
-            bot.send_message(message.from_user.id,
-                             "Изменять темы может только администратор.")
-    elif message.text.find("Темы") != -1:
-        for key in topics:
-            bot.send_message(message.from_user.id,
-                             f"{key}\n\n{topics[key]}")
-    else:
-        bot.send_message(message.from_user.id,
-                         "Прости, но я тебя не понимаю.")
+            bot.send_message(message.chat.id, scheduleDay)
+    except IndexError:
+        for key, value in data.items():
+            items = list(data[key].items())
+            bot.send_message(message.chat.id, f'[{key}]')
+            for item in items:
+                bot.send_message(message.chat.id, f'{item[0]} - {item[1]}')
+            bot.send_message(message.chat.id, '----------------------')
+    finally:
+        return 0
+
+
+@bot.message_handler(commands=['добавить'])
+def addSchedule(message):
+    day = message.text.split(' ')[1]
+    item = message.text.split(' ', 2)[2].split(':', 1)[0]
+    valueItem = message.text.split(' ', 1)[1].split(':', 1)[1]
+    add_edit_item(day, item, valueItem)
+    bot.send_message(message.chat.id, 'Расписание успешно изменено')
+
+
+@bot.message_handler(commands=['удалить'])
+def removeSchedule(message):
+    day = message.text.split(' ')[1]
+    item = message.text.split(' ')[2]
+    del_item(day, item)
+    bot.send_message(message.chat.id, 'Расписание успешно изменено')
+
+
+@bot.message_handler(commands=['изменить'])
+def editSchedule(message):
+    day = message.text.split(' ')[1]
+    item = message.text.split(' ', 2)[2].split(':', 1)[0]
+    valueItem = message.text.split(' ', 1)[1].split(':', 1)[1]
+    add_edit_item(day, item, valueItem)
+    bot.send_message(message.chat.id, 'Расписание успешно изменено')
 
 
 bot.polling(none_stop=True)

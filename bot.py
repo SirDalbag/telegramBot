@@ -3,7 +3,7 @@ import json
 import datetime
 import telebot
 
-token = '5837752378:AAFRN_VsN2hZIok2nGpoWkcZ67YeNEOSeTU'
+token = ''
 
 bot = telebot.TeleBot(token)
 

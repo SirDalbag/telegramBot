@@ -2,11 +2,11 @@ import telebot
 import requests
 
 params = {
-    'chat_id': '920986648',
+    'chat_id': '8',
     'text': '',
 }
 
-token = '5642905344:AAEKmD3m4s1WTdXvOz-LRZMLA6qW4k46sQY'
+token = ''
 
 bot = telebot.TeleBot(token)
 
